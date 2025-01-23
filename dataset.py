@@ -2,7 +2,7 @@ import os
 from io import BytesIO
 from pathlib import Path
 
-import lmdb
+# import lmdb
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -83,38 +83,38 @@ class SubsetDataset(Dataset):
         return self.dataset[index]
 
 
-class BaseLMDB(Dataset):
-    def __init__(self, path, original_resolution, zfill: int = 5):
-        self.original_resolution = original_resolution
-        self.zfill = zfill
-        self.env = lmdb.open(
-            path,
-            max_readers=32,
-            readonly=True,
-            lock=False,
-            readahead=False,
-            meminit=False,
-        )
+# class BaseLMDB(Dataset):
+#     def __init__(self, path, original_resolution, zfill: int = 5):
+#         self.original_resolution = original_resolution
+#         self.zfill = zfill
+#         self.env = lmdb.open(
+#             path,
+#             max_readers=32,
+#             readonly=True,
+#             lock=False,
+#             readahead=False,
+#             meminit=False,
+#         )
 
-        if not self.env:
-            raise IOError('Cannot open lmdb dataset', path)
+#         if not self.env:
+#             raise IOError('Cannot open lmdb dataset', path)
 
-        with self.env.begin(write=False) as txn:
-            self.length = int(
-                txn.get('length'.encode('utf-8')).decode('utf-8'))
+#         with self.env.begin(write=False) as txn:
+#             self.length = int(
+#                 txn.get('length'.encode('utf-8')).decode('utf-8'))
 
-    def __len__(self):
-        return self.length
+#     def __len__(self):
+#         return self.length
 
-    def __getitem__(self, index):
-        with self.env.begin(write=False) as txn:
-            key = f'{self.original_resolution}-{str(index).zfill(self.zfill)}'.encode(
-                'utf-8')
-            img_bytes = txn.get(key)
+#     def __getitem__(self, index):
+#         with self.env.begin(write=False) as txn:
+#             key = f'{self.original_resolution}-{str(index).zfill(self.zfill)}'.encode(
+#                 'utf-8')
+#             img_bytes = txn.get(key)
 
-        buffer = BytesIO(img_bytes)
-        img = Image.open(buffer)
-        return img
+#         buffer = BytesIO(img_bytes)
+#         img = Image.open(buffer)
+#         return img
 
 
 def make_transform(
@@ -139,55 +139,55 @@ def make_transform(
     return transform
 
 
-class FFHQlmdb(Dataset):
-    def __init__(self,
-                 path=os.path.expanduser('datasets/ffhq256.lmdb'),
-                 image_size=256,
-                 original_resolution=256,
-                 split=None,
-                 as_tensor: bool = True,
-                 do_augment: bool = True,
-                 do_normalize: bool = True,
-                 **kwargs):
-        self.original_resolution = original_resolution
-        self.data = BaseLMDB(path, original_resolution, zfill=5)
-        self.length = len(self.data)
+# class FFHQlmdb(Dataset):
+#     def __init__(self,
+#                  path=os.path.expanduser('datasets/ffhq256.lmdb'),
+#                  image_size=256,
+#                  original_resolution=256,
+#                  split=None,
+#                  as_tensor: bool = True,
+#                  do_augment: bool = True,
+#                  do_normalize: bool = True,
+#                  **kwargs):
+#         self.original_resolution = original_resolution
+#         self.data = BaseLMDB(path, original_resolution, zfill=5)
+#         self.length = len(self.data)
 
-        if split is None:
-            self.offset = 0
-        elif split == 'train':
-            # last 60k
-            self.length = self.length - 10000
-            self.offset = 10000
-        elif split == 'test':
-            # first 10k
-            self.length = 10000
-            self.offset = 0
-        else:
-            raise NotImplementedError()
+#         if split is None:
+#             self.offset = 0
+#         elif split == 'train':
+#             # last 60k
+#             self.length = self.length - 10000
+#             self.offset = 10000
+#         elif split == 'test':
+#             # first 10k
+#             self.length = 10000
+#             self.offset = 0
+#         else:
+#             raise NotImplementedError()
 
-        transform = [
-            transforms.Resize(image_size),
-        ]
-        if do_augment:
-            transform.append(transforms.RandomHorizontalFlip())
-        if as_tensor:
-            transform.append(transforms.ToTensor())
-        if do_normalize:
-            transform.append(
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
-        self.transform = transforms.Compose(transform)
+#         transform = [
+#             transforms.Resize(image_size),
+#         ]
+#         if do_augment:
+#             transform.append(transforms.RandomHorizontalFlip())
+#         if as_tensor:
+#             transform.append(transforms.ToTensor())
+#         if do_normalize:
+#             transform.append(
+#                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+#         self.transform = transforms.Compose(transform)
 
-    def __len__(self):
-        return self.length
+#     def __len__(self):
+#         return self.length
 
-    def __getitem__(self, index):
-        assert index < self.length
-        index = index + self.offset
-        img = self.data[index]
-        if self.transform is not None:
-            img = self.transform(img)
-        return {'img': img, 'index': index}
+#     def __getitem__(self, index):
+#         assert index < self.length
+#         index = index + self.offset
+#         img = self.data[index]
+#         if self.transform is not None:
+#             img = self.transform(img)
+#         return {'img': img, 'index': index}
 
 
 class Crop:
@@ -217,60 +217,60 @@ def d2c_crop():
     return Crop(x1, x2, y1, y2)
 
 
-class CelebAlmdb(Dataset):
-    """
-    also supports for d2c crop.
-    """
-    def __init__(self,
-                 path,
-                 image_size,
-                 original_resolution=128,
-                 split=None,
-                 as_tensor: bool = True,
-                 do_augment: bool = True,
-                 do_normalize: bool = True,
-                 crop_d2c: bool = False,
-                 **kwargs):
-        self.original_resolution = original_resolution
-        self.data = BaseLMDB(path, original_resolution, zfill=7)
-        self.length = len(self.data)
-        self.crop_d2c = crop_d2c
+# class CelebAlmdb(Dataset):
+#     """
+#     also supports for d2c crop.
+#     """
+#     def __init__(self,
+#                  path,
+#                  image_size,
+#                  original_resolution=128,
+#                  split=None,
+#                  as_tensor: bool = True,
+#                  do_augment: bool = True,
+#                  do_normalize: bool = True,
+#                  crop_d2c: bool = False,
+#                  **kwargs):
+#         self.original_resolution = original_resolution
+#         self.data = BaseLMDB(path, original_resolution, zfill=7)
+#         self.length = len(self.data)
+#         self.crop_d2c = crop_d2c
 
-        if split is None:
-            self.offset = 0
-        else:
-            raise NotImplementedError()
+#         if split is None:
+#             self.offset = 0
+#         else:
+#             raise NotImplementedError()
 
-        if crop_d2c:
-            transform = [
-                d2c_crop(),
-                transforms.Resize(image_size),
-            ]
-        else:
-            transform = [
-                transforms.Resize(image_size),
-                transforms.CenterCrop(image_size),
-            ]
+#         if crop_d2c:
+#             transform = [
+#                 d2c_crop(),
+#                 transforms.Resize(image_size),
+#             ]
+#         else:
+#             transform = [
+#                 transforms.Resize(image_size),
+#                 transforms.CenterCrop(image_size),
+#             ]
 
-        if do_augment:
-            transform.append(transforms.RandomHorizontalFlip())
-        if as_tensor:
-            transform.append(transforms.ToTensor())
-        if do_normalize:
-            transform.append(
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
-        self.transform = transforms.Compose(transform)
+#         if do_augment:
+#             transform.append(transforms.RandomHorizontalFlip())
+#         if as_tensor:
+#             transform.append(transforms.ToTensor())
+#         if do_normalize:
+#             transform.append(
+#                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+#         self.transform = transforms.Compose(transform)
 
-    def __len__(self):
-        return self.length
+#     def __len__(self):
+#         return self.length
 
-    def __getitem__(self, index):
-        assert index < self.length
-        index = index + self.offset
-        img = self.data[index]
-        if self.transform is not None:
-            img = self.transform(img)
-        return {'img': img, 'index': index}
+#     def __getitem__(self, index):
+#         assert index < self.length
+#         index = index + self.offset
+#         img = self.data[index]
+#         if self.transform is not None:
+#             img = self.transform(img)
+#         return {'img': img, 'index': index}
 
 
 class CelebAttrDataset(Dataset):
@@ -503,129 +503,129 @@ class CelebD2CAttrFewshotDataset(CelebAttrFewshotDataset):
         self.is_negative = is_negative
 
 
-class CelebHQAttrDataset(Dataset):
-    id_to_cls = [
-        '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes',
-        'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair',
-        'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin',
-        'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
-        'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard',
-        'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline',
-        'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair',
-        'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick',
-        'Wearing_Necklace', 'Wearing_Necktie', 'Young'
-    ]
-    cls_to_id = {v: k for k, v in enumerate(id_to_cls)}
+# class CelebHQAttrDataset(Dataset):
+#     id_to_cls = [
+#         '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes',
+#         'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair',
+#         'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin',
+#         'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
+#         'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard',
+#         'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline',
+#         'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair',
+#         'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick',
+#         'Wearing_Necklace', 'Wearing_Necktie', 'Young'
+#     ]
+#     cls_to_id = {v: k for k, v in enumerate(id_to_cls)}
 
-    def __init__(self,
-                 path=os.path.expanduser('datasets/celebahq256.lmdb'),
-                 image_size=None,
-                 attr_path=os.path.expanduser(
-                     'datasets/celeba_anno/CelebAMask-HQ-attribute-anno.txt'),
-                 original_resolution=256,
-                 do_augment: bool = False,
-                 do_transform: bool = True,
-                 do_normalize: bool = True):
-        super().__init__()
-        self.image_size = image_size
-        self.data = BaseLMDB(path, original_resolution, zfill=5)
+#     def __init__(self,
+#                  path=os.path.expanduser('datasets/celebahq256.lmdb'),
+#                  image_size=None,
+#                  attr_path=os.path.expanduser(
+#                      'datasets/celeba_anno/CelebAMask-HQ-attribute-anno.txt'),
+#                  original_resolution=256,
+#                  do_augment: bool = False,
+#                  do_transform: bool = True,
+#                  do_normalize: bool = True):
+#         super().__init__()
+#         self.image_size = image_size
+#         self.data = BaseLMDB(path, original_resolution, zfill=5)
 
-        transform = [
-            transforms.Resize(image_size),
-            transforms.CenterCrop(image_size),
-        ]
-        if do_augment:
-            transform.append(transforms.RandomHorizontalFlip())
-        if do_transform:
-            transform.append(transforms.ToTensor())
-        if do_normalize:
-            transform.append(
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
-        self.transform = transforms.Compose(transform)
+#         transform = [
+#             transforms.Resize(image_size),
+#             transforms.CenterCrop(image_size),
+#         ]
+#         if do_augment:
+#             transform.append(transforms.RandomHorizontalFlip())
+#         if do_transform:
+#             transform.append(transforms.ToTensor())
+#         if do_normalize:
+#             transform.append(
+#                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+#         self.transform = transforms.Compose(transform)
 
-        with open(attr_path) as f:
-            # discard the top line
-            f.readline()
-            self.df = pd.read_csv(f, delim_whitespace=True)
+#         with open(attr_path) as f:
+#             # discard the top line
+#             f.readline()
+#             self.df = pd.read_csv(f, delim_whitespace=True)
 
-    def pos_count(self, cls_name):
-        return (self.df[cls_name] == 1).sum()
+#     def pos_count(self, cls_name):
+#         return (self.df[cls_name] == 1).sum()
 
-    def neg_count(self, cls_name):
-        return (self.df[cls_name] == -1).sum()
+#     def neg_count(self, cls_name):
+#         return (self.df[cls_name] == -1).sum()
 
-    def __len__(self):
-        return len(self.df)
+#     def __len__(self):
+#         return len(self.df)
 
-    def __getitem__(self, index):
-        row = self.df.iloc[index]
-        img_name = row.name
-        img_idx, ext = img_name.split('.')
-        img = self.data[img_idx]
+#     def __getitem__(self, index):
+#         row = self.df.iloc[index]
+#         img_name = row.name
+#         img_idx, ext = img_name.split('.')
+#         img = self.data[img_idx]
 
-        labels = [0] * len(self.id_to_cls)
-        for k, v in row.items():
-            labels[self.cls_to_id[k]] = int(v)
+#         labels = [0] * len(self.id_to_cls)
+#         for k, v in row.items():
+#             labels[self.cls_to_id[k]] = int(v)
 
-        if self.transform is not None:
-            img = self.transform(img)
-        return {'img': img, 'index': index, 'labels': torch.tensor(labels)}
+#         if self.transform is not None:
+#             img = self.transform(img)
+#         return {'img': img, 'index': index, 'labels': torch.tensor(labels)}
 
 
-class CelebHQAttrFewshotDataset(Dataset):
-    def __init__(self,
-                 cls_name,
-                 K,
-                 path,
-                 image_size,
-                 original_resolution=256,
-                 do_augment: bool = False,
-                 do_transform: bool = True,
-                 do_normalize: bool = True):
-        super().__init__()
-        self.image_size = image_size
-        self.cls_name = cls_name
-        self.K = K
-        self.data = BaseLMDB(path, original_resolution, zfill=5)
+# class CelebHQAttrFewshotDataset(Dataset):
+#     def __init__(self,
+#                  cls_name,
+#                  K,
+#                  path,
+#                  image_size,
+#                  original_resolution=256,
+#                  do_augment: bool = False,
+#                  do_transform: bool = True,
+#                  do_normalize: bool = True):
+#         super().__init__()
+#         self.image_size = image_size
+#         self.cls_name = cls_name
+#         self.K = K
+#         self.data = BaseLMDB(path, original_resolution, zfill=5)
 
-        transform = [
-            transforms.Resize(image_size),
-            transforms.CenterCrop(image_size),
-        ]
-        if do_augment:
-            transform.append(transforms.RandomHorizontalFlip())
-        if do_transform:
-            transform.append(transforms.ToTensor())
-        if do_normalize:
-            transform.append(
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
-        self.transform = transforms.Compose(transform)
+#         transform = [
+#             transforms.Resize(image_size),
+#             transforms.CenterCrop(image_size),
+#         ]
+#         if do_augment:
+#             transform.append(transforms.RandomHorizontalFlip())
+#         if do_transform:
+#             transform.append(transforms.ToTensor())
+#         if do_normalize:
+#             transform.append(
+#                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+#         self.transform = transforms.Compose(transform)
 
-        self.df = pd.read_csv(f'data/celebahq_fewshots/K{K}_{cls_name}.csv',
-                              index_col=0)
+#         self.df = pd.read_csv(f'data/celebahq_fewshots/K{K}_{cls_name}.csv',
+#                               index_col=0)
 
-    def pos_count(self, cls_name):
-        return (self.df[cls_name] == 1).sum()
+#     def pos_count(self, cls_name):
+#         return (self.df[cls_name] == 1).sum()
 
-    def neg_count(self, cls_name):
-        return (self.df[cls_name] == -1).sum()
+#     def neg_count(self, cls_name):
+#         return (self.df[cls_name] == -1).sum()
 
-    def __len__(self):
-        return len(self.df)
+#     def __len__(self):
+#         return len(self.df)
 
-    def __getitem__(self, index):
-        row = self.df.iloc[index]
-        img_name = row.name
-        img_idx, ext = img_name.split('.')
-        img = self.data[img_idx]
+#     def __getitem__(self, index):
+#         row = self.df.iloc[index]
+#         img_name = row.name
+#         img_idx, ext = img_name.split('.')
+#         img = self.data[img_idx]
 
-        # (1, 1)
-        label = torch.tensor(int(row[self.cls_name])).unsqueeze(-1)
+#         # (1, 1)
+#         label = torch.tensor(int(row[self.cls_name])).unsqueeze(-1)
 
-        if self.transform is not None:
-            img = self.transform(img)
+#         if self.transform is not None:
+#             img = self.transform(img)
 
-        return {'img': img, 'index': index, 'labels': label}
+#         return {'img': img, 'index': index, 'labels': label}
 
 
 class Repeat(Dataset):

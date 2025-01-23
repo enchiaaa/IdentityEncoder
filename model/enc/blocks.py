@@ -6,11 +6,11 @@ import numpy as np
 
 import torch as th
 import torch.nn.functional as F
-from model.enc.choices import *
-from config_base import BaseConfig
+from .choices import *
+from .config_base import BaseConfig
 from torch import nn
 
-from ..nn import (avg_pool_nd, conv_nd, linear, normalization,
+from .nn import (avg_pool_nd, conv_nd, linear, normalization,
                  timestep_embedding, torch_checkpoint, zero_module)
 
 
